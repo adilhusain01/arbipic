@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Environment Variables Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #00ff00; }
+    .var { margin: 10px 0; padding: 10px; border: 1px solid #00ff00; }
+    .label { color: #ffaa00; font-weight: bold; }
+    .value { color: #00ff00; }
+    .status { padding: 5px 10px; margin-left: 10px; border-radius: 3px; }
+    .ok { background: #00aa00; color: white; }
+    .missing { background: #aa0000; color: white; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Environment Variables Check</h1>
+  <div id="results"></div>
+  
+  <script type="module">
+    const results = document.getElementById('results');
+    
+    const vars = [
+      'VITE_PINATA_API_KEY',
+      'VITE_PINATA_SECRET_KEY',
+      'VITE_NFT_STORAGE_KEY',
+      'VITE_VERIFIER_ADDRESS'
+    ];
+    
+    vars.forEach(varName => {
+      const value = import.meta.env[varName];
+      const status = value ? 
+        `<span class="status ok">✓ SET</span>` : 
+        `<span class="status missing">✗ MISSING</span>`;
+      
+      const displayValue = value ? 
+        (value.length > 50 ? value.substring(0, 47) + '...' : value) : 
+        '(not set)';
+      
+      results.innerHTML += `
+        <div class="var">
+          <span class="label">${varName}:</span>
+          <span class="value">${displayValue}</span>
+          ${status}
+        </div>
+      `;
+    });
+    
+    // Test Pinata API
+    const pinataCreds = import.meta.env.VITE_PINATA_API_KEY && import.meta.env.VITE_PINATA_SECRET_KEY;
+    if (pinataCreds) {
+      results.innerHTML += `<div class="var"><h2>Testing Pinata Connection...</h2></div>`;
+      
+      fetch('https://api.pinata.cloud/data/testAuthentication', {
+        headers: {
+          'pinata_api_key': import.meta.env.VITE_PINATA_API_KEY,
+          'pinata_secret_api_key': import.meta.env.VITE_PINATA_SECRET_KEY
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        results.innerHTML += `
+          <div class="var">
+            <span class="label">Pinata Status:</span>
+            <span class="value">${data.message}</span>
+            <span class="status ok">✓ WORKING</span>
+          </div>
+        `;
+      })
+      .catch(err => {
+        results.innerHTML += `
+          <div class="var">
+            <span class="label">Pinata Status:</span>
+            <span class="value">Error: ${err.message}</span>
+            <span class="status missing">✗ FAILED</span>
+          </div>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>
