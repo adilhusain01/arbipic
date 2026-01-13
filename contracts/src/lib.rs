@@ -83,23 +83,27 @@ impl Verifier {
         let attestation = self.attestations.getter(photo_hash);
         let stored_commitment = attestation.zk_commitment.get();
         
-        // Compute commitment from secret
+        // Compute commitment from secret using keccak256(photoHash || secret)
         let computed = self.compute_commitment(photo_hash, secret);
         
         Ok(computed == stored_commitment)
     }
     
-    /// Helper: Compute ZK commitment
+    /// Helper: Compute ZK commitment using keccak256
     fn compute_commitment(&self, photo_hash: U256, secret: U256) -> U256 {
-        let mut data = [0u8; 64];
-        photo_hash.to_be_bytes_vec().iter().enumerate().for_each(|(i, &b)| {
-            if i < 32 { data[i] = b; }
-        });
-        secret.to_be_bytes_vec().iter().enumerate().for_each(|(i, &b)| {
-            if i < 32 { data[i + 32] = b; }
-        });
+        use stylus_sdk::crypto::keccak;
         
-        U256::from_be_slice(&data[..32])
+        let mut data = [0u8; 64];
+        // Copy photo_hash bytes (big endian, 32 bytes)
+        let photo_bytes = photo_hash.to_be_bytes::<32>();
+        data[..32].copy_from_slice(&photo_bytes);
+        // Copy secret bytes (big endian, 32 bytes)  
+        let secret_bytes = secret.to_be_bytes::<32>();
+        data[32..64].copy_from_slice(&secret_bytes);
+        
+        // Keccak256 hash
+        let hash = keccak(&data);
+        U256::from_be_bytes(hash.0)
     }
 
     /// Check if a photo is verified

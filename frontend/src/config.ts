@@ -116,7 +116,7 @@ export const VERIFIER_ABI = [
 ] as const
 
 // Update this with your deployed contract address
-export const VERIFIER_ADDRESS = '0xc6de7d7d5e6eb2e6f6269727a81058506adc5e39' as const
+export const VERIFIER_ADDRESS = '0xeb246817d2440f82f4b4c04c2c120afefe1e5ec4' as const
 
 // Pinata IPFS configuration (use JWT for SDK)
 // Get your JWT from https://app.pinata.cloud/developers/api-keys

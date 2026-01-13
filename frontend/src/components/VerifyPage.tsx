@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { sha256 } from 'js-sha256'
 import { useReadContract } from 'wagmi'
 import { VERIFIER_ABI, VERIFIER_ADDRESS, PINATA_GATEWAY } from '../config'
-import { generateVerificationId, generateTxUrl, generateContractUrl, getLocalVerification } from '../utils/verification'
+import { generateVerificationId, generateContractUrl, getLocalVerification } from '../utils/verification'
+import { retrieveSecret } from '../utils/zkProof'
+import { encodeFunctionData } from 'viem'
 
 interface PhotoMetadata {
   ipfsCid: string
@@ -14,12 +16,15 @@ interface PhotoMetadata {
 
 export const VerifyPage: React.FC = () => {
   const { verificationId } = useParams<{ verificationId?: string }>()
-  const [searchParams] = useSearchParams()
   
   const [inputHash, setInputHash] = useState('')
   const [searchHash, setSearchHash] = useState<string | null>(null)
   const [uploadedImage, setUploadedImage] = useState<string | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  
+  // ZK Proof state
+  const [zkProofStatus, setZkProofStatus] = useState<'idle' | 'proving' | 'success' | 'failed'>('idle')
+  const [hasSecret, setHasSecret] = useState(false)
 
   // Try to get full hash from URL param or local storage
   useEffect(() => {
@@ -34,6 +39,60 @@ export const VerifyPage: React.FC = () => {
       }
     }
   }, [verificationId])
+
+  // Check if user has the secret for this photo (means they're the owner)
+  useEffect(() => {
+    if (searchHash) {
+      const secret = retrieveSecret(searchHash)
+      setHasSecret(!!secret)
+      setZkProofStatus('idle')
+    }
+  }, [searchHash])
+
+  // Prove ownership using ZK proof
+  const proveOwnership = useCallback(async () => {
+    if (!searchHash) return
+    setZkProofStatus('proving')
+    
+    try {
+      const secret = retrieveSecret(searchHash)
+      if (!secret) {
+        setZkProofStatus('failed')
+        return
+      }
+      
+      const secretBigInt = BigInt(secret)
+      
+      // Encode verifyZkProof call
+      const callData = encodeFunctionData({
+        abi: VERIFIER_ABI,
+        functionName: 'verifyZkProof',
+        args: [BigInt(`0x${searchHash}`), secretBigInt],
+      })
+      
+      const ethereum = (window as any).ethereum
+      if (!ethereum) {
+        throw new Error('MetaMask not found')
+      }
+      
+      // Call (not send) to verify without gas
+      const result = await ethereum.request({
+        method: 'eth_call',
+        params: [{
+          to: VERIFIER_ADDRESS,
+          data: callData,
+        }, 'latest'],
+      })
+      
+      // Result is true if ownership is proven
+      const isValid = result !== '0x0000000000000000000000000000000000000000000000000000000000000000'
+      
+      setZkProofStatus(isValid ? 'success' : 'failed')
+    } catch (err) {
+      console.error('ZK proof error:', err)
+      setZkProofStatus('failed')
+    }
+  }, [searchHash])
 
   // Read on-chain verification status
   const { data: isVerified, isLoading: isCheckingVerification } = useReadContract({
@@ -365,6 +424,63 @@ export const VerifyPage: React.FC = () => {
                         >
                           {parsedMetadata.ipfsCid.slice(0, 12)}...
                         </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ZK Proof of Ownership Section */}
+                  <div className={`rounded-xl p-4 ${
+                    zkProofStatus === 'success' ? 'bg-green-50 border-2 border-green-500' :
+                    zkProofStatus === 'failed' ? 'bg-red-50 border-2 border-red-500' :
+                    hasSecret ? 'bg-amber-50 border-2 border-amber-500' :
+                    'bg-gray-50 border-2 border-gray-200'
+                  }`}>
+                    <p className={`font-medium text-center mb-3 ${
+                      zkProofStatus === 'success' ? 'text-green-700' :
+                      zkProofStatus === 'failed' ? 'text-red-700' :
+                      hasSecret ? 'text-amber-700' :
+                      'text-gray-600'
+                    }`}>
+                      🔐 Zero-Knowledge Ownership Proof
+                    </p>
+                    
+                    {zkProofStatus === 'success' ? (
+                      <div className="text-center">
+                        <div className="text-4xl mb-2">✅</div>
+                        <p className="text-green-700 font-semibold">Ownership Proven!</p>
+                        <p className="text-green-600 text-sm mt-1">
+                          The current user has cryptographically proven they own this photo.
+                        </p>
+                      </div>
+                    ) : zkProofStatus === 'failed' ? (
+                      <div className="text-center">
+                        <div className="text-4xl mb-2">❌</div>
+                        <p className="text-red-700 font-semibold">Proof Failed</p>
+                        <p className="text-red-600 text-sm mt-1">
+                          Could not verify ownership. Secret may be incorrect.
+                        </p>
+                      </div>
+                    ) : hasSecret ? (
+                      <div className="text-center">
+                        <p className="text-amber-700 text-sm mb-3">
+                          You have the secret key for this photo. Click below to prove ownership without revealing the image.
+                        </p>
+                        <button
+                          onClick={proveOwnership}
+                          disabled={zkProofStatus === 'proving'}
+                          className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-all"
+                        >
+                          {zkProofStatus === 'proving' ? '⏳ Proving...' : '🔐 Prove I Own This Photo'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-gray-500 text-sm">
+                          Only the original photographer can prove ownership using their secret key.
+                        </p>
+                        <p className="text-gray-400 text-xs mt-2">
+                          If you're the owner, open this page on the device where you captured the photo.
+                        </p>
                       </div>
                     )}
                   </div>

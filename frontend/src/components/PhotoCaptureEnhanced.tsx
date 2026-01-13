@@ -6,7 +6,7 @@ import { VERIFIER_ABI, VERIFIER_ADDRESS } from '../config'
 import { Hash, encodeFunctionData } from 'viem'
 import { arbitrumSepolia } from 'wagmi/chains'
 import { collectDeviceMetadata, hashToBigInt } from '../utils/deviceMetadata'
-import { generateZKProof, storeSecretSecurely } from '../utils/zkProof'
+import { generateZKProof, storeSecretSecurely, retrieveSecret, verifyZKProofLocally, computeCommitment } from '../utils/zkProof'
 import { uploadToPinata } from '../utils/ipfs'
 import { 
   generateVerificationUrl, 
@@ -328,6 +328,65 @@ export const PhotoCaptureEnhanced: React.FC = () => {
     link.click()
   }, [photo])
 
+  // Prove ownership using ZK proof
+  const [zkProofResult, setZkProofResult] = useState<'idle' | 'proving' | 'success' | 'failed'>('idle')
+  
+  const proveOwnership = useCallback(async () => {
+    if (!photo) return
+    setZkProofResult('proving')
+    
+    try {
+      // Retrieve stored secret
+      const secret = retrieveSecret(photo.hash)
+      if (!secret) {
+        alert('❌ ZK secret not found locally. You can only prove ownership from the device that captured the photo.')
+        setZkProofResult('failed')
+        return
+      }
+      
+      // Verify locally first
+      const secretBigInt = BigInt(secret)
+      const commitment = computeCommitment(`0x${photo.hash}`, secretBigInt)
+      
+      // Call the on-chain verification
+      const ethereum = (window as any).ethereum
+      if (!ethereum) {
+        throw new Error('MetaMask not found')
+      }
+      
+      // Encode verifyZkProof call
+      const callData = encodeFunctionData({
+        abi: VERIFIER_ABI,
+        functionName: 'verifyZkProof',
+        args: [BigInt(`0x${photo.hash}`), secretBigInt],
+      })
+      
+      // Call (not send) to verify without gas
+      const result = await ethereum.request({
+        method: 'eth_call',
+        params: [{
+          to: VERIFIER_ADDRESS,
+          data: callData,
+        }, 'latest'],
+      })
+      
+      // Result is true if ownership is proven
+      const isValid = result !== '0x0000000000000000000000000000000000000000000000000000000000000000'
+      
+      if (isValid) {
+        setZkProofResult('success')
+        alert('✅ ZK Proof Verified! You have proven ownership of this photo without revealing the image.')
+      } else {
+        setZkProofResult('failed')
+        alert('❌ ZK Proof Failed. The secret does not match the on-chain commitment.')
+      }
+    } catch (err) {
+      console.error('ZK proof error:', err)
+      setZkProofResult('failed')
+      alert('❌ ZK Proof Failed: ' + (err as Error).message)
+    }
+  }, [photo])
+
   const reset = () => {
     setPhoto(null)
     setStep('idle')
@@ -464,6 +523,15 @@ export const PhotoCaptureEnhanced: React.FC = () => {
                     </a>
                   </div>
                 )}
+
+                {photo.zkSecret && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600 font-medium">ZK Proof:</span>
+                    <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-lg font-mono">
+                      🔐 Secret stored locally
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -551,6 +619,24 @@ export const PhotoCaptureEnhanced: React.FC = () => {
                       className="flex-1 py-3 px-6 bg-gray-500 text-white font-semibold rounded-xl shadow-lg hover:bg-gray-600 transition-all"
                     >
                       📸 Capture New Photo
+                    </button>
+                    
+                    <button
+                      onClick={proveOwnership}
+                      disabled={zkProofResult === 'proving'}
+                      className={`py-3 px-6 font-semibold rounded-xl shadow-lg transition-all ${
+                        zkProofResult === 'success' 
+                          ? 'bg-green-500 text-white' 
+                          : zkProofResult === 'failed'
+                          ? 'bg-red-500 text-white'
+                          : 'bg-amber-500 text-white hover:bg-amber-600'
+                      }`}
+                      title="Prove you own this photo without revealing it"
+                    >
+                      {zkProofResult === 'proving' ? '⏳...' : 
+                       zkProofResult === 'success' ? '✅ Proven' :
+                       zkProofResult === 'failed' ? '❌ Failed' :
+                       '🔐 Prove Ownership'}
                     </button>
                   </div>
 
