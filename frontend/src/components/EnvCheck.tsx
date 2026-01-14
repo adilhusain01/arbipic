@@ -70,13 +70,13 @@ export function EnvCheck() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ok':
-        return 'text-green-500';
+        return 'text-emerald-500';
       case 'missing':
         return 'text-red-500';
       case 'placeholder':
-        return 'text-yellow-500';
+        return 'text-amber-500';
       default:
-        return 'text-gray-500';
+        return 'text-zinc-500';
     }
   };
 
@@ -94,20 +94,29 @@ export function EnvCheck() {
   };
 
   return (
-    <div className="bg-gray-900 border border-purple-500/30 rounded-lg p-6 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold text-white mb-4">🔍 Environment Variables Status</h2>
+    <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-xl p-8 max-w-4xl mx-auto shadow-2xl">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+        <h2 className="text-xl font-bold text-white tracking-tight">System Status</h2>
+      </div>
 
       <div className="space-y-3 mb-6">
         {envVars.map((env) => (
           <div
             key={env.name}
-            className="bg-gray-800 rounded-lg p-4 border border-gray-700"
+            className="bg-black/40 rounded-lg p-4 border border-zinc-800/50 flex items-center justify-between group hover:border-zinc-700 transition-all"
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-mono text-sm text-purple-400">{env.name}</span>
-              <span className={`font-bold ${getStatusColor(env.status)}`}>
-                {getStatusIcon(env.status)} {env.status.toUpperCase()}
-              </span>
+            <div className="flex flex-col">
+               <span className="font-mono text-xs text-zinc-500 mb-1">{env.name}</span>
+               {env.warning && <span className="text-xs text-amber-500/80">{env.warning}</span>}
+            </div>
+            
+            <span className={`font-mono text-sm font-bold flex items-center gap-2 ${getStatusColor(env.status)}`}>
+               {getStatusIcon(env.status)} {env.status.toUpperCase()}
+            </span>
+          </div>
+        ))}
+      </div>
             </div>
 
             {env.value && (

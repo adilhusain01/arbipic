@@ -244,39 +244,41 @@ export const VerifyPage: React.FC = () => {
   } : null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800">
+    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black">
       <Header />
-      <div className="py-12">
-        <div className="max-w-4xl mx-auto px-6">
+      <div className="py-12 relative">
+         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-black to-black pointer-events-none" />
+        
+        <div className="max-w-4xl mx-auto px-6 relative z-10">
           {/* Page Title */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-white">
-              🔍 Verify Photo Authenticity
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4 bg-gradient-to-b from-white to-zinc-500 bg-clip-text text-transparent">
+              Verify Authenticity
             </h1>
-            <p className="text-white/80 mt-2">
-              Check if a photo was verified on the Arbitrum blockchain
+            <p className="text-zinc-400 text-lg font-light">
+              Cryptographically verify photos on the Arbitrum blockchain
             </p>
-            <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-sm">
-              <span className="mr-2">{isOnL3 ? '🟣' : '🔵'}</span>
-              <span className="text-white/90">Connected to <strong>{networkName}</strong></span>
-            </div>
           </div>
 
         {/* Search Box */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
-          <div className="space-y-4">
+        <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 mb-8 shadow-2xl">
+          <div className="space-y-6">
             {/* Upload or Paste Image */}
-            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-purple-400 transition-colors">
+            <div className={`border-2 border-dashed rounded-2xl p-10 text-center transition-all duration-300 group ${
+              uploadedImage 
+                ? 'border-zinc-700 bg-zinc-900/50' 
+                : 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900'
+            }`}>
               {uploadedImage ? (
-                <div className="relative">
+                <div className="relative inline-block">
                   <img 
                     src={uploadedImage} 
                     alt="Uploaded for verification" 
-                    className="max-h-64 mx-auto rounded-lg shadow-md"
+                    className="max-h-64 rounded-lg shadow-2xl border border-zinc-700"
                   />
                   <button
                     onClick={() => { setUploadedImage(null); setSearchHash(null); }}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600"
+                    className="absolute -top-3 -right-3 bg-zinc-800 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-zinc-700 border border-zinc-600 shadow-lg transition-all"
                   >
                     ×
                   </button>
@@ -292,21 +294,23 @@ export const VerifyPage: React.FC = () => {
                   />
                   <label 
                     htmlFor="image-upload"
-                    className="cursor-pointer"
+                    className="cursor-pointer block"
                   >
-                    <div className="text-4xl mb-2">🖼️</div>
-                    <p className="text-gray-600 font-medium">
-                      Drop an image here or click to upload
+                    <div className="w-16 h-16 mx-auto mb-4 bg-zinc-800 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform duration-300 border border-zinc-700">
+                      🖼️
+                    </div>
+                    <p className="text-white font-semibold text-lg mb-2">
+                      Drop an image here
                     </p>
-                    <p className="text-gray-400 text-sm mt-1">
-                      We'll compute its hash and check the blockchain
+                    <p className="text-zinc-500 text-sm">
+                      We'll verify its hash against the blockchain
                     </p>
                   </label>
                   
-                  <div className="mt-4">
+                  <div className="mt-6">
                     <button
                       onClick={handlePaste}
-                      className="px-4 py-2 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
+                      className="px-6 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-full text-sm font-medium transition-all border border-zinc-700"
                     >
                       📋 Paste from Clipboard
                     </button>
@@ -315,11 +319,11 @@ export const VerifyPage: React.FC = () => {
               )}
             </div>
 
-            {/* Or enter hash manually */}
+            {/* Separator */}
             <div className="flex items-center gap-4">
-              <div className="flex-1 h-px bg-gray-200"></div>
-              <span className="text-gray-400 text-sm">OR enter hash directly</span>
-              <div className="flex-1 h-px bg-gray-200"></div>
+              <div className="flex-1 h-px bg-zinc-800"></div>
+              <span className="text-zinc-600 text-xs font-mono tracking-widest uppercase">Or Verify by Hash</span>
+              <div className="flex-1 h-px bg-zinc-800"></div>
             </div>
 
             <div className="flex gap-3">
@@ -327,15 +331,15 @@ export const VerifyPage: React.FC = () => {
                 type="text"
                 value={inputHash}
                 onChange={(e) => setInputHash(e.target.value)}
-                placeholder="Enter photo hash (64 characters) or verification ID"
-                className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-400 focus:outline-none font-mono text-sm"
+                placeholder="0x..."
+                className="flex-1 px-5 py-4 bg-black border border-zinc-800 rounded-xl focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/20 font-mono text-sm text-white placeholder-zinc-700 transition-all"
               />
               <button
                 onClick={handleHashSearch}
                 disabled={!inputHash || isSearching}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 transition-all"
+                className="px-8 py-4 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 disabled:opacity-50 transition-all shadow-lg hover:shadow-white/10"
               >
-                {isSearching ? '🔄' : '🔍'} Verify
+                {isSearching ? '...' : 'Verify'}
               </button>
             </div>
           </div>
@@ -343,72 +347,62 @@ export const VerifyPage: React.FC = () => {
 
         {/* Results */}
         {searchHash && (
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl animate-fade-in-up">
             {/* Clear search button */}
-            <div className="flex justify-end p-2 bg-gray-50 border-b">
+            <div className="flex justify-end p-4 border-b border-zinc-800/50">
               <button
                 onClick={() => {
                   setSearchHash(null)
                   setInputHash('')
                   setUploadedImage(null)
                 }}
-                className="px-3 py-1 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                className="px-4 py-2 text-xs font-medium text-zinc-500 hover:text-white bg-zinc-950 hover:bg-zinc-800 rounded-full border border-zinc-800 transition-all"
               >
-                ✕ New Search
+                Start New Verification
               </button>
             </div>
             
             {isCheckingVerification ? (
-              <div className="p-12 text-center">
-                <div className="text-4xl mb-4 animate-bounce">🔍</div>
-                <p className="text-gray-600">Checking blockchain...</p>
+              <div className="p-20 text-center">
+                <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+                <p className="text-zinc-400 font-mono text-sm uppercase tracking-widest">Verifying On-Chain...</p>
               </div>
             ) : isVerified ? (
               <>
                 {/* Verified Banner */}
-                <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 text-white text-center">
-                  <div className="text-5xl mb-2">✅</div>
-                  <h2 className="text-2xl font-bold">Photo is Verified!</h2>
-                  <p className="text-white/80 mt-1">
-                    This photo was captured and verified on the Arbitrum blockchain
+                <div className="bg-zinc-950 p-8 text-center border-b border-zinc-800 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-white/5 opacity-0 hover:opacity-100 transition-opacity duration-1000"></div>
+                  <div className="inline-flex items-center justify-center p-3 rounded-full bg-green-500/10 text-green-500 mb-4 border border-green-500/20">
+                     <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <h2 className="text-3xl font-bold text-white mb-2">Authentic Photo</h2>
+                  <p className="text-zinc-400">
+                    Verified immutable on {networkName}
                   </p>
                 </div>
 
                 {/* Verification Details */}
-                <div className="p-6 space-y-4">
-                  {/* IPFS Image Preview */}
-                  {parsedMetadata?.ipfsCid && (
-                    <div className="rounded-xl overflow-hidden shadow-lg">
-                      <img 
-                        src={`${PINATA_GATEWAY}${parsedMetadata.ipfsCid}`}
-                        alt="Verified photo"
-                        className="w-full"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none'
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600 font-medium">Photo Hash:</span>
-                      <code className="text-xs bg-white px-3 py-1 rounded-lg shadow-sm font-mono">
-                        {searchHash.slice(0, 16)}...{searchHash.slice(-8)}
+                <div className="p-8 space-y-6">
+                  {/* Metadata Grid */}
+                  <div className="bg-black/50 rounded-2xl p-6 border border-zinc-800 space-y-4 font-mono text-sm">
+                    <div className="flex items-center justify-between pb-4 border-b border-zinc-800/50">
+                      <span className="text-zinc-500">Hash</span>
+                      <code className="text-white bg-zinc-900 px-3 py-1 rounded border border-zinc-800">
+                        {searchHash.slice(0, 10)}...{searchHash.slice(-8)}
                       </code>
                     </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600 font-medium">Verification ID:</span>
-                      <code className="text-sm bg-purple-100 text-purple-700 px-3 py-1 rounded-lg font-mono">
+                    <div className="flex items-center justify-between pb-4 border-b border-zinc-800/50">
+                      <span className="text-zinc-500">Verification ID</span>
+                      <code className="text-zinc-300">
                         #{generateVerificationId(searchHash)}
                       </code>
                     </div>
 
                     {attestation && attestation[0] > 0n && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600 font-medium">Verified On:</span>
-                        <span className="text-green-600 font-semibold">
+                      <div className="flex items-center justify-between pb-4 border-b border-zinc-800/50">
+                        <span className="text-zinc-500">Timestamp</span>
+                        <span className="text-emerald-500">
                           {new Date(Number(attestation[0]) * 1000).toLocaleString()}
                         </span>
                       </div>
@@ -416,158 +410,110 @@ export const VerifyPage: React.FC = () => {
 
                     {parsedMetadata?.owner && (
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-600 font-medium">Owner:</span>
+                        <span className="text-zinc-500">Owner</span>
                         <a 
                           href={`https://sepolia.arbiscan.io/address/${parsedMetadata.owner}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline font-mono text-sm"
+                          className="text-white hover:text-blue-400 transition-colors underline decoration-zinc-800 underline-offset-4"
                         >
                           {parsedMetadata.owner.slice(0, 8)}...{parsedMetadata.owner.slice(-6)}
-                        </a>
-                      </div>
-                    )}
-
-                    {parsedMetadata?.ipfsCid && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600 font-medium">IPFS:</span>
-                        <a 
-                          href={`${PINATA_GATEWAY}${parsedMetadata.ipfsCid}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline font-mono text-sm"
-                        >
-                          {parsedMetadata.ipfsCid.slice(0, 12)}...
                         </a>
                       </div>
                     )}
                   </div>
 
                   {/* ZK Proof of Ownership Section */}
-                  <div className={`rounded-xl p-4 ${
-                    zkProofStatus === 'success' ? 'bg-green-50 border-2 border-green-500' :
-                    zkProofStatus === 'failed' ? 'bg-red-50 border-2 border-red-500' :
-                    hasSecret ? 'bg-amber-50 border-2 border-amber-500' :
-                    'bg-gray-50 border-2 border-gray-200'
+                  <div className={`rounded-xl p-6 border ${
+                    zkProofStatus === 'success' ? 'bg-green-500/5 border-green-500/20' :
+                    hasSecret ? 'bg-amber-500/5 border-amber-500/20' :
+                    'bg-zinc-950 border-zinc-800'
                   }`}>
-                    <p className={`font-medium text-center mb-3 ${
-                      zkProofStatus === 'success' ? 'text-green-700' :
-                      zkProofStatus === 'failed' ? 'text-red-700' :
-                      hasSecret ? 'text-amber-700' :
-                      'text-gray-600'
-                    }`}>
-                      🔐 Zero-Knowledge Ownership Proof
-                    </p>
+                    <div className="flex items-center gap-3 mb-4">
+                       <span className={`p-2 rounded-lg ${
+                          zkProofStatus === 'success' ? 'bg-green-500/10 text-green-500' : 
+                          'bg-zinc-900 text-zinc-400'
+                       }`}>🔐</span>
+                       <h3 className="font-bold text-white">Ownership Proof</h3>
+                    </div>
                     
                     {zkProofStatus === 'success' ? (
-                      <div className="text-center">
-                        <div className="text-4xl mb-2">✅</div>
-                        <p className="text-green-700 font-semibold">Ownership Proven!</p>
-                        <p className="text-green-600 text-sm mt-1">
-                          The current user has cryptographically proven they own this photo.
-                        </p>
-                      </div>
-                    ) : zkProofStatus === 'failed' ? (
-                      <div className="text-center">
-                        <div className="text-4xl mb-2">❌</div>
-                        <p className="text-red-700 font-semibold">Proof Failed</p>
-                        <p className="text-red-600 text-sm mt-1">
-                          Could not verify ownership. Secret may be incorrect.
+                      <div>
+                        <p className="text-green-400 font-medium mb-1">Ownership Successfully Proven</p>
+                        <p className="text-green-500/60 text-sm">
+                          Cryptographic proof validated against on-chain commitment.
                         </p>
                       </div>
                     ) : hasSecret ? (
-                      <div className="text-center">
-                        <p className="text-amber-700 text-sm mb-3">
-                          You have the secret key for this photo. Click below to prove ownership without revealing the image.
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-amber-500/80 text-sm">
+                          Secret key detected locally. You can prove ownership.
                         </p>
                         <button
                           onClick={proveOwnership}
                           disabled={zkProofStatus === 'proving'}
-                          className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-all"
+                          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-lg text-sm transition-all"
                         >
-                          {zkProofStatus === 'proving' ? '⏳ Proving...' : '🔐 Prove I Own This Photo'}
+                          {zkProofStatus === 'proving' ? 'Verifying...' : 'Prove Ownership'}
                         </button>
                       </div>
                     ) : (
-                      <div className="text-center">
-                        <p className="text-gray-500 text-sm">
-                          Only the original photographer can prove ownership using their secret key.
-                        </p>
-                        <p className="text-gray-400 text-xs mt-2">
-                          If you're the owner, open this page on the device where you captured the photo.
-                        </p>
-                      </div>
+                      <p className="text-zinc-500 text-sm">
+                        Only the original photographer can prove ownership using their private commitment key.
+                      </p>
                     )}
                   </div>
 
                   {/* Blockchain Proof Link */}
-                  <div className="bg-blue-50 rounded-xl p-4">
-                    <p className="text-blue-700 font-medium text-center mb-2">
-                      🔗 Blockchain Proof
-                    </p>
+                  <div className="text-center pt-4">
                     <a
                       href={generateContractUrl()}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-center text-blue-600 hover:underline text-sm"
+                      className="inline-flex items-center gap-2 text-zinc-500 hover:text-white transition-colors text-sm"
                     >
-                      View Contract on Arbiscan →
+                      <span>View Contract on Arbiscan</span>
+                      <span className="text-xs">↗</span>
                     </a>
                   </div>
                 </div>
               </>
             ) : (
-              /* Not Verified */
-              <div className="p-12 text-center">
-                <div className="text-5xl mb-4">❌</div>
-                <h2 className="text-2xl font-bold text-red-600">Not Verified</h2>
-                <p className="text-gray-600 mt-2">
-                  This photo was not found on the Arbitrum blockchain.
-                </p>
-                <p className="text-gray-500 text-sm mt-4">
-                  It may be AI-generated or hasn't been verified through ArbiPic yet.
+              /* Not Verified Screen */
+              <div className="p-16 text-center bg-red-500/5">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 text-red-500 mb-6 border border-red-500/20">
+                   <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">Not Verified</h2>
+                <p className="text-zinc-400 max-w-md mx-auto">
+                  This photo could not be found on the Arbitrum blockchain. It may be unverified or modified.
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* How it works */}
+        {/* Info Grid */}
         {!searchHash && (
-          <div className="bg-white rounded-2xl shadow-xl p-6 mt-8">
-            <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">
-              How ArbiPic Verification Works
-            </h3>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="text-center p-4">
-                <div className="text-3xl mb-2">📸</div>
-                <h4 className="font-semibold text-gray-700">1. Capture</h4>
-                <p className="text-gray-500 text-sm">
-                  User takes a photo with ArbiPic, which collects device metadata
-                </p>
-              </div>
-              <div className="text-center p-4">
-                <div className="text-3xl mb-2">⛓️</div>
-                <h4 className="font-semibold text-gray-700">2. Verify</h4>
-                <p className="text-gray-500 text-sm">
-                  Photo hash & metadata stored on Arbitrum blockchain (immutable proof)
-                </p>
-              </div>
-              <div className="text-center p-4">
-                <div className="text-3xl mb-2">✅</div>
-                <h4 className="font-semibold text-gray-700">3. Check</h4>
-                <p className="text-gray-500 text-sm">
-                  Anyone can verify by uploading the image or using the verification link
-                </p>
-              </div>
-            </div>
+          <div className="grid md:grid-cols-3 gap-6 mt-16 text-center">
+             <div className="p-6 rounded-2xl bg-zinc-900/30 border border-zinc-800/50 hover:bg-zinc-900/50 transition-all">
+                <div className="text-4xl mb-4 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">📸</div>
+                <h3 className="text-white font-bold mb-2">1. Capture</h3>
+                <p className="text-zinc-500 text-sm">Securely snap photos with device-attested metadata</p>
+             </div>
+             <div className="p-6 rounded-2xl bg-zinc-900/30 border border-zinc-800/50 hover:bg-zinc-900/50 transition-all">
+                <div className="text-4xl mb-4 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">⛓️</div>
+                <h3 className="text-white font-bold mb-2">2. Verify</h3>
+                <p className="text-zinc-500 text-sm">Hash & ZK proof committed to Arbitrum Stylus contract</p>
+             </div>
+             <div className="p-6 rounded-2xl bg-zinc-900/30 border border-zinc-800/50 hover:bg-zinc-900/50 transition-all">
+                <div className="text-4xl mb-4 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all">✅</div>
+                <h3 className="text-white font-bold mb-2">3. Prove</h3>
+                <p className="text-zinc-500 text-sm">Anyone can verify authenticity without revealing identity</p>
+             </div>
           </div>
         )}
 
-        {/* Footer */}
-        <div className="text-center mt-8 text-white/60 text-sm">
-          <p>Powered by <span className="font-semibold">Arbitrum Stylus</span> • Fighting AI fakes with blockchain</p>
-        </div>
         </div>
       </div>
     </div>

@@ -8,16 +8,31 @@ import { arbitrumSepolia } from 'wagmi/chains'
 import { collectDeviceMetadata, hashToBigInt } from '../utils/deviceMetadata'
 import { generateZKProof, storeSecretSecurely, retrieveSecret, computeCommitment } from '../utils/zkProof'
 import { uploadToPinata } from '../utils/ipfs'
-import { 
-  generateVerificationUrl, 
-  generateTwitterShareUrl, 
+import {
+  generateVerificationUrl,
+  generateTwitterShareUrl,
   generateVerificationId,
   storeVerificationLocally,
   copyVerificationLink,
   addVerificationWatermark,
+  getIpfsUrl,
   VerificationData
 } from '../utils/verification'
 import { createSimpleAttestation } from '../utils/eas'
+
+// --- Icons ---
+const Icons = {
+  Camera: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" /></svg>,
+  Check: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Wallet: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" /></svg>,
+  Share: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" /></svg>,
+  Download: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>,
+  Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>,
+  Lock: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>,
+  Twitter: () => <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>,
+  Sparkles: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>,
+  Badge: () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" /></svg>,
+}
 
 const videoConstraints = {
   width: 1280,
@@ -81,6 +96,26 @@ export const PhotoCaptureEnhanced: React.FC = () => {
       // Mark as created immediately to prevent re-runs
       setAttestationCreated(true)
       
+      // EAS attestation disabled - skip straight to complete
+      console.log('📍 Skipping EAS attestation (disabled)')
+      setStep('complete')
+      
+      // Store verification data locally
+      const verificationData: VerificationData = {
+        photoHash: photo.hash,
+        txHash: pendingTxHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        owner: address,
+        ipfsCid: photo.ipfsCid
+      }
+      storeVerificationLocally(verificationData)
+      
+      // Generate watermarked image
+      addVerificationWatermark(photo.imageSrc, photo.hash)
+        .then(setWatermarkedImage)
+        .catch(console.error)
+      
+      /* EAS ATTESTATION DISABLED - Uncomment to re-enable
       // Only create EAS attestation on Arbitrum Sepolia (EAS contracts don't exist on L3)
       const isOnSepolia = chainId === arbitrumSepolia.id
       
@@ -159,6 +194,7 @@ export const PhotoCaptureEnhanced: React.FC = () => {
           .then(setWatermarkedImage)
           .catch(console.error)
       }
+      END EAS ATTESTATION DISABLED */
     }
   }, [isConfirmed, photo, pendingTxHash, address, attestationCreated, chainId])
 
@@ -362,9 +398,41 @@ export const PhotoCaptureEnhanced: React.FC = () => {
     }
   }, [photo, isConnected, isCorrectNetwork, switchChain, address, contractAddress])
 
-  const shareOnTwitter = useCallback(() => {
+  const shareOnTwitter = useCallback(async () => {
     if (!photo || !pendingTxHash || !address) return
     
+    // Attempt to copy image to clipboard for easy pasting
+    if (watermarkedImage) {
+      try {
+        // Convert to PNG for max clipboard compatibility (JPEG is flaky in Clipboard API)
+        const img = new Image()
+        img.src = watermarkedImage
+        await new Promise((resolve) => { img.onload = resolve })
+
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0)
+          const blob = await new Promise<Blob | null>(resolve => 
+            canvas.toBlob(resolve, 'image/png')
+          )
+
+          if (blob) {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ])
+            // Explicitly notify user to ensure they know they can paste
+            alert('Image copied to clipboard! Paste it (Ctrl+V) in your tweet.')
+          }
+        }
+      } catch (err) {
+        console.warn('Could not copy image to clipboard:', err)
+        alert('Could not auto-copy image. Please use "Save Original" or "Badge" to download first.')
+      }
+    }
+
     const verificationData: VerificationData = {
       photoHash: photo.hash,
       txHash: pendingTxHash,
@@ -375,7 +443,7 @@ export const PhotoCaptureEnhanced: React.FC = () => {
     
     const twitterUrl = generateTwitterShareUrl(verificationData)
     window.open(twitterUrl, '_blank')
-  }, [photo, pendingTxHash, address])
+  }, [photo, pendingTxHash, address, watermarkedImage])
 
   const copyLink = useCallback(async () => {
     if (!photo) return
@@ -475,32 +543,36 @@ export const PhotoCaptureEnhanced: React.FC = () => {
 
   const getStepMessage = () => {
     switch (step) {
-      case 'collecting': return '📊 Collecting device metadata...'
-      case 'uploading': return '☁️ Uploading to IPFS...'
-      case 'signing': return '✍️ Please sign the transaction...'
-      case 'confirming': return '⏳ Confirming on blockchain...'
-      case 'attesting': return '📜 Creating EAS attestation...'
-      case 'complete': return '✅ Photo verified!'
+      case 'collecting': return 'Collecting metadata...'
+      case 'uploading': return 'Securing on IPFS...'
+      case 'signing': return 'Waiting for wallet...'
+      case 'confirming': return 'Verifying on-chain...'
+      case 'attesting': return 'Creating attestation...'
+      case 'complete': return 'Verification Complete'
       default: return null
     }
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
-          <h2 className="text-3xl font-bold text-white text-center">
-            📸 ArbiPic Verifier
-          </h2>
-          <p className="text-white/90 text-center mt-2">
-            Capture, verify & share authentic photos on Arbitrum
+    <div className="min-h-screen bg-black text-white p-6 md:p-12 font-sans selection:bg-white selection:text-black">
+      <div className="max-w-2xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-10">
+          {/* <div className="inline-flex items-center justify-center p-3 mb-6 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-xl">
+             <Icons.Camera />
+          </div>
+          <h1 className="text-5xl font-bold tracking-tighter mb-4 bg-gradient-to-b from-white to-zinc-500 bg-clip-text text-transparent">
+            ArbiPic
+          </h1> */}
+          <p className="text-zinc-400 text-lg font-light tracking-wide">
+            Secure Photo Verification Protocol
           </p>
         </div>
 
-        <div className="p-6">
+        <div className="bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-2 shadow-2xl overflow-hidden">
           {!photo ? (
-            <div className="space-y-4">
-              <div className="relative rounded-xl overflow-hidden shadow-lg">
+            <div className="relative group">
+              <div className="relative rounded-2xl overflow-hidden bg-black aspect-video border border-zinc-800">
                 <Webcam
                   audio={false}
                   height={720}
@@ -508,266 +580,258 @@ export const PhotoCaptureEnhanced: React.FC = () => {
                   screenshotFormat="image/jpeg"
                   width={1280}
                   videoConstraints={videoConstraints}
-                  className="w-full"
+                  className="w-full h-full object-cover opacity-90"
                 />
+                
+                {/* Overlay Grid */}
+                <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-20">
+                  <div className="border-r border-b border-white/30"></div>
+                  <div className="border-r border-b border-white/30"></div>
+                  <div className="border-b border-white/30"></div>
+                  <div className="border-r border-b border-white/30"></div>
+                  <div className="border-r border-b border-white/30"></div>
+                  <div className="border-b border-white/30"></div>
+                  <div className="border-r border-white/30"></div>
+                  <div className="border-r border-white/30"></div>
+                  <div></div>
+                </div>
+
+                {/* Corner Markers */}
+                <div className="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-white/50 rounded-tl-lg"></div>
+                <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-white/50 rounded-tr-lg"></div>
+                <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-white/50 rounded-bl-lg"></div>
+                <div className="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-white/50 rounded-br-lg"></div>
               </div>
               
-              <button
-                onClick={capture}
-                disabled={isCapturing || !isConnected}
-                className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold rounded-xl shadow-lg hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
-              >
-                {isConnected ? '📸 Capture Photo' : '🔌 Connect Wallet First'}
-              </button>
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center">
+                <button
+                  onClick={capture}
+                  disabled={isCapturing || !isConnected}
+                  className="group relative px-8 py-4 bg-white text-black font-bold rounded-full shadow-lg hover:shadow-white/20 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center gap-3"
+                >
+                  {isConnected ? (
+                    <>
+                      <Icons.Camera />
+                      <span>Capture</span>
+                    </>
+                  ) : (
+                    <>
+                      <Icons.Wallet />
+                      <span>Connect Wallet</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="p-4 space-y-6">
               {/* Image Display */}
-              <div className="rounded-xl overflow-hidden shadow-lg relative">
+              <div className="relative rounded-2xl overflow-hidden border border-zinc-700 shadow-2xl group">
                 <img 
                   src={watermarkedImage || photo.imageSrc} 
                   alt="Captured" 
-                  className="w-full" 
+                  className="w-full grayscale group-hover:grayscale-0 transition-all duration-500 ease-in-out" // Black and white theme
                 />
+                
                 {step === 'complete' && (
-                  <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-                    ✓ Verified
+                  <div className="absolute top-4 right-4 bg-white text-black px-4 py-2 rounded-full text-sm font-bold shadow-2xl flex items-center gap-2 animate-fade-in-up">
+                    <Icons.Badge />
+                    Verified
                   </div>
+                )}
+
+                 {/* Status Overlay */}
+                {step !== 'idle' && step !== 'complete' && (
+                   <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center flex-col gap-4 text-white">
+                      <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <p className="font-mono tracking-widest text-sm uppercase">{getStepMessage()}</p>
+                   </div>
                 )}
               </div>
 
-              {/* Status Message */}
-              {step !== 'idle' && step !== 'complete' && (
-                <div className="bg-blue-50 border-2 border-blue-400 rounded-xl p-4 text-center animate-pulse">
-                  <p className="text-blue-700 font-medium">{getStepMessage()}</p>
-                </div>
-              )}
-
               {/* Error Message */}
               {error && (
-                <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 text-center">
-                  <p className="text-red-700 font-medium">❌ {error}</p>
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-center gap-3 text-red-400">
+                  <span className="text-xl">!</span>
+                  <p className="font-medium text-sm">{error}</p>
                 </div>
               )}
 
-              {/* Photo Info */}
-              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600 font-medium">Photo Hash:</span>
-                  <code className="text-xs bg-white px-3 py-1 rounded-lg shadow-sm font-mono">
-                    {photo.hash.slice(0, 16)}...
-                  </code>
+              {/* Verified Metadata */}
+              <div className="bg-zinc-950 rounded-xl p-6 border border-zinc-800 space-y-4 font-mono text-sm">
+                <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+                   <div className="flex items-center gap-2 text-zinc-400 shrink-0">
+                      <Icons.Lock />
+                      <span>Photo Hash</span>
+                   </div>
+                   <code className="text-white hover:text-zinc-300 transition-colors cursor-help text-xs sm:text-sm text-right break-all ml-4" title={photo.hash}>
+                     {photo.hash.slice(0, 12)}...{photo.hash.slice(-8)}
+                   </code>
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600 font-medium">Verification ID:</span>
-                  <code className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-lg font-mono">
-                    #{photo.verificationId}
-                  </code>
+                <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+                   <span className="text-zinc-400">ID</span>
+                   <span className="text-white">#{photo.verificationId}</span>
                 </div>
-                
                 {attestation && attestation[0] > 0n && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 font-medium">Verified At:</span>
-                    <span className="text-sm text-green-600 font-semibold">
-                      {new Date(Number(attestation[0]) * 1000).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-
-                {pendingTxHash && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 font-medium">Tx Hash:</span>
-                    <a
-                      href={`https://sepolia.arbiscan.io/tx/${pendingTxHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      {pendingTxHash.slice(0, 16)}...
-                    </a>
-                  </div>
-                )}
-
-                {photo.ipfsCid && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 font-medium">IPFS:</span>
-                    <a
-                      href={`https://gateway.pinata.cloud/ipfs/${photo.ipfsCid}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      {photo.ipfsCid.slice(0, 16)}...
-                    </a>
-                  </div>
-                )}
-
-                {photo.easAttestationId && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 font-medium">EAS:</span>
-                    {photo.easExplorerUrl ? (
-                      <a 
-                        href={photo.easExplorerUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-lg font-mono hover:bg-purple-200 transition-colors"
-                      >
-                        📜 View Attestation ↗
-                      </a>
-                    ) : (
-                      <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-lg font-mono">
-                        📜 {photo.easAttestationId.startsWith('local-') ? 'Local' : 'On-chain'}
+                   <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+                      <span className="text-zinc-400">Verified</span>
+                      <span className="text-white">
+                        {new Date(Number(attestation[0]) * 1000).toLocaleString()}
                       </span>
-                    )}
-                  </div>
+                   </div>
                 )}
 
-                {photo.zkSecret && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 font-medium">ZK Proof:</span>
-                    <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-lg font-mono">
-                      🔐 Secret stored locally
-                    </span>
-                  </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                   {pendingTxHash && (
+                     chainId === orbitL3.id ? (
+                       <div className="block p-3 bg-zinc-900 rounded-lg text-center text-xs text-zinc-400 border border-zinc-800">
+                         <span className="text-zinc-500">TX:</span> {pendingTxHash.slice(0, 10)}...{pendingTxHash.slice(-8)}
+                       </div>
+                     ) : (
+                       <a
+                         href={`https://sepolia.arbiscan.io/tx/${pendingTxHash}`}
+                         target="_blank"
+                         rel="noopener noreferrer"
+                         className="block p-3 bg-zinc-900 rounded-lg text-center text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800 transition-all"
+                       >
+                         View Transaction ↗
+                       </a>
+                     )
+                   )}
+                   {photo.ipfsCid && (
+                     <a
+                       href={getIpfsUrl(photo.ipfsCid)}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="block p-3 bg-zinc-900 rounded-lg text-center text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800 transition-all"
+                     >
+                       View IPFS ↗
+                     </a>
+                   )}
+                </div>
+                
+                {photo.easAttestationId && (
+                   <div className="pt-2">
+                      <a 
+                         href={photo.easExplorerUrl || '#'} 
+                         target="_blank" 
+                         rel="noopener noreferrer"
+                         className="flex items-center justify-center gap-2 w-full p-3 bg-white/5 hover:bg-white/10 text-white rounded-lg border border-white/10 transition-all group"
+                      >
+                         <Icons.Check />
+                         <span>EAS Attestation Confirmed</span>
+                      </a>
+                   </div>
                 )}
               </div>
 
               {/* Action Buttons */}
               {step !== 'complete' ? (
-                <div className="flex gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
                     onClick={verifyWithMetadata}
                     disabled={isConfirming || !isConnected || (attestation && attestation[0] > 0n) || step !== 'idle'}
-                    className="flex-1 py-3 px-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold rounded-xl shadow-lg hover:from-green-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="col-span-1 md:col-span-2 py-4 px-6 bg-white text-black font-bold rounded-xl hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                   >
-                    {(attestation && attestation[0] > 0n) ? '✅ Already Verified' :
-                     !isCorrectNetwork ? '🔄 Switch Network' :
-                     '🔐 Verify with Metadata'}
+                    {(attestation && attestation[0] > 0n) ? 
+                     <><Icons.Check /> Verified</> :
+                     !isCorrectNetwork ? 'Switch Network' :
+                     <><Icons.Lock /> Secure Verify</>
+                    }
                   </button>
 
                   <button
                     onClick={verifySimple}
                     disabled={isConfirming || !isConnected || (attestation && attestation[0] > 0n) || step !== 'idle'}
-                    className="py-3 px-6 bg-gray-600 text-white font-semibold rounded-xl shadow-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    title="Quick verify without metadata"
+                    className="py-4 px-6 bg-zinc-800 text-white font-semibold rounded-xl hover:bg-zinc-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                   >
-                    ⚡ Quick
+                    <Icons.Sparkles /> Simple Verify
                   </button>
 
                   <button
                     onClick={reset}
-                    className="py-3 px-6 bg-gray-500 text-white font-semibold rounded-xl shadow-lg hover:bg-gray-600 transition-all"
+                    className="py-4 px-6 bg-zinc-900 text-zinc-400 font-semibold rounded-xl hover:bg-zinc-800 hover:text-white border border-zinc-800 transition-all flex items-center justify-center gap-2"
                   >
-                    🔄
+                    <Icons.Refresh /> Reset
                   </button>
                 </div>
               ) : (
-                /* Sharing Options */
-                <div className="space-y-3">
-                  <div className="bg-green-50 border-2 border-green-500 rounded-xl p-4 text-center">
-                    <p className="text-green-700 font-semibold text-lg">
-                      ✨ Photo successfully verified on Arbitrum!
-                    </p>
-                    <p className="text-green-600 text-sm mt-1">
-                      Share it on Twitter to prove it's authentic
-                    </p>
+                <div className="space-y-4">
+                  <div className="p-4 bg-white/5 border border-white/10 rounded-xl text-center">
+                     <h3 className="text-xl font-bold text-white mb-2">Success!</h3>
+                     <p className="text-zinc-400 text-sm">Your photo has been cryptographically secured on the blockchain.</p>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <button
                       onClick={shareOnTwitter}
-                      className="flex-1 py-3 px-6 bg-[#1DA1F2] text-white font-semibold rounded-xl shadow-lg hover:bg-[#1a8cd8] transition-all flex items-center justify-center gap-2"
+                      className="py-4 px-6 bg-[#1DA1F2] hover:bg-[#1a8cd8] text-white font-bold rounded-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-900/20"
                     >
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                      </svg>
-                      Share on X/Twitter
+                      <Icons.Twitter />
+                      Share on X
                     </button>
 
-                    <button
-                      onClick={copyLink}
-                      className="py-3 px-6 bg-purple-500 text-white font-semibold rounded-xl shadow-lg hover:bg-purple-600 transition-all"
-                      title="Copy verification link"
-                    >
-                      🔗 Copy Link
-                    </button>
+                    <div className="grid grid-cols-2 gap-3">
+                       <button
+                         onClick={copyLink}
+                         className="py-4 px-6 bg-zinc-800 text-white font-semibold rounded-xl hover:bg-zinc-700 transition-all flex items-center justify-center gap-2"
+                       >
+                         <Icons.Share /> Copy Link
+                       </button>
 
-                    {watermarkedImage && (
-                      <button
-                        onClick={downloadWatermarked}
-                        className="py-3 px-6 bg-blue-500 text-white font-semibold rounded-xl shadow-lg hover:bg-blue-600 transition-all"
-                        title="Download with verification badge (for sharing)"
-                      >
-                        🏷️ Badge
-                      </button>
-                    )}
-
+                       {watermarkedImage && (
+                         <button
+                           onClick={downloadWatermarked}
+                           className="py-4 px-6 bg-zinc-800 text-white font-semibold rounded-xl hover:bg-zinc-700 transition-all flex items-center justify-center gap-2"
+                         >
+                           <Icons.Badge /> Badge
+                         </button>
+                       )}
+                    </div>
+                    
                     <button
                       onClick={downloadOriginal}
-                      className="py-3 px-6 bg-green-500 text-white font-semibold rounded-xl shadow-lg hover:bg-green-600 transition-all"
-                      title="Download original (verifiable by re-upload)"
+                      className="py-4 px-6 bg-zinc-900 text-zinc-400 hover:text-white font-semibold rounded-xl border border-zinc-800 hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
                     >
-                      💾 Original
+                      <Icons.Download /> Save Original
                     </button>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="pt-4 border-t border-zinc-800 flex justify-between gap-4">
                     <button
                       onClick={reset}
-                      className="flex-1 py-3 px-6 bg-gray-500 text-white font-semibold rounded-xl shadow-lg hover:bg-gray-600 transition-all"
+                      className="text-zinc-500 hover:text-white text-sm font-medium transition-colors flex items-center gap-2"
                     >
-                      📸 Capture New Photo
+                      <Icons.Camera /> New Photo
                     </button>
                     
                     <button
                       onClick={proveOwnership}
                       disabled={zkProofResult === 'proving'}
-                      className={`py-3 px-6 font-semibold rounded-xl shadow-lg transition-all ${
+                      className={`text-sm font-medium transition-colors flex items-center gap-2 ${
                         zkProofResult === 'success' 
-                          ? 'bg-green-500 text-white' 
+                          ? 'text-green-500' 
                           : zkProofResult === 'failed'
-                          ? 'bg-red-500 text-white'
-                          : 'bg-amber-500 text-white hover:bg-amber-600'
+                          ? 'text-red-500'
+                          : 'text-zinc-500 hover:text-white'
                       }`}
-                      title="Prove you own this photo without revealing it"
                     >
-                      {zkProofResult === 'proving' ? '⏳...' : 
-                       zkProofResult === 'success' ? '✅ Proven' :
-                       zkProofResult === 'failed' ? '❌ Failed' :
-                       '🔐 Prove Ownership'}
+                      {zkProofResult === 'proving' ? 'Verifying...' : 
+                       zkProofResult === 'success' ? 'Ownership Proven' :
+                       'Prove Ownership'}
                     </button>
-                  </div>
-
-                  {/* Verification URL Display */}
-                  <div className="bg-gray-100 rounded-xl p-3 text-center">
-                    <p className="text-xs text-gray-500 mb-1">Verification Link:</p>
-                    <code className="text-sm text-purple-600 font-mono">
-                      {generateVerificationUrl(photo.hash)}
-                    </code>
                   </div>
                 </div>
               )}
             </div>
           )}
-
-          {/* Connection Warning */}
-          {!isConnected && (
-            <div className="mt-4 bg-yellow-50 border-2 border-yellow-400 rounded-xl p-4 text-center">
-              <p className="text-yellow-700 font-medium">
-                ⚠️ Please connect your wallet to capture and verify photos
-              </p>
-            </div>
-          )}
-
-          {/* Network Warning */}
-          {isConnected && !isCorrectNetwork && (
-            <div className="mt-4 bg-orange-50 border-2 border-orange-400 rounded-xl p-4 text-center">
-              <p className="text-orange-700 font-medium">
-                🔄 Wrong Network! Please switch to Arbitrum Sepolia
-              </p>
-            </div>
-          )}
+        </div>
+        
+        {/* Footer */}
+        <div className="text-center mt-8 text-zinc-600 text-sm">
+           {!isConnected && <span className="text-yellow-600/50">⚠ Connect wallet to begin</span>}
+           {isConnected && !isCorrectNetwork && <span className="text-red-500">⚠ Switch to Arbitrum Sepolia</span>}
         </div>
       </div>
     </div>

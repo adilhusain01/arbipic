@@ -64,43 +64,35 @@ export const NetworkSwitcher: React.FC = () => {
   const isLoading = isPending || isAdding
 
   return (
-    <div className="flex items-center space-x-2">
-      <span className="text-xs text-white/70">Network:</span>
-      <div className="flex bg-white/10 rounded-lg p-1">
-        <button
-          onClick={() => handleSwitch(arbitrumSepolia.id)}
-          disabled={isLoading}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            isOnSepolia
-              ? 'bg-blue-500 text-white shadow-lg'
-              : 'text-white/70 hover:text-white hover:bg-white/10'
-          } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <span className="flex items-center space-x-1">
-            <span>🔵</span>
-            <span>Sepolia</span>
-          </span>
-        </button>
-        <button
-          onClick={() => handleSwitch(orbitL3.id)}
-          disabled={isLoading}
-          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-            isOnL3
-              ? 'bg-purple-500 text-white shadow-lg'
-              : 'text-white/70 hover:text-white hover:bg-white/10'
-          } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <span className="flex items-center space-x-1">
-            <span>🟣</span>
-            <span>Orbit L3</span>
-          </span>
-        </button>
-      </div>
+    <div className="flex items-center space-x-3 bg-zinc-900/50 p-1 rounded-lg border border-white/5">
+      <button
+        onClick={() => handleSwitch(arbitrumSepolia.id)}
+        disabled={isLoading}
+        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2 ${
+          isOnSepolia
+            ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
+            : 'text-zinc-500 hover:text-zinc-300'
+        } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+      >
+        <div className={`w-1.5 h-1.5 rounded-full ${isOnSepolia ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-zinc-600'}`}></div>
+        <span>Sepolia</span>
+      </button>
+      
+      <button
+        onClick={() => handleSwitch(orbitL3.id)}
+        disabled={isLoading}
+        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-2 ${
+          isOnL3
+            ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
+            : 'text-zinc-500 hover:text-zinc-300'
+        } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+      >
+        <div className={`w-1.5 h-1.5 rounded-full ${isOnL3 ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]' : 'bg-zinc-600'}`}></div>
+        <span>Orbit L3</span>
+      </button>
+      
       {isOnUnknown && (
-        <span className="text-xs text-yellow-400">⚠️ Wrong network</span>
-      )}
-      {isLoading && (
-        <span className="text-xs text-white/50">Switching...</span>
+        <span className="px-2 text-xs text-yellow-500 font-mono">Wrong Network</span>
       )}
     </div>
   )

@@ -221,5 +221,20 @@ export async function copyVerificationLink(photoHash: string): Promise<boolean> 
  * Generate IPFS URL for image
  */
 export function getIpfsUrl(cid: string): string {
-  return `${PINATA_GATEWAY}${cid}`
+  let url = PINATA_GATEWAY
+  
+  // Ensure protocol
+  if (!url.startsWith('http')) {
+    url = `https://${url}`
+  }
+  
+  // Remove trailing slashes and normalize
+  url = url.replace(/\/+$/, '')
+  
+  // Add /ipfs/ path if not present and using a gateway domain
+  if (!url.includes('/ipfs/')) {
+    url = `${url}/ipfs`
+  }
+  
+  return `${url}/${cid}`
 }

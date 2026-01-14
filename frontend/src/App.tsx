@@ -12,20 +12,23 @@ const queryClient = new QueryClient()
 
 function HomePage() {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black">
       <Header />
-      <main className="py-8">
-        <div className="container mx-auto px-4 space-y-8">
+      <main className="py-12 relative z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-800/20 via-black to-black pointer-events-none" />
+        <div className="container mx-auto px-4 relative">
           <PhotoCaptureEnhanced />
         </div>
       </main>
-      <footer className="text-center py-6 text-white/80">
-        <p className="text-sm">
-          Built with Stylus • Arbitrum Sepolia & Orbit L3 • Powered by Rust
-        </p>
-        <p className="text-xs mt-2">
-          🏆 Arbitrum Hackathon Project
-        </p>
+      <footer className="text-center py-12 text-zinc-600 border-t border-zinc-900 bg-black">
+        <div className="container mx-auto px-4">
+          <p className="text-sm font-medium">
+            ArbiPic Verifier • Built on Arbitrum Rust Stylus
+          </p>
+          <p className="text-xs mt-3 opacity-60">
+            Secure • Private • Immutable
+          </p>
+        </div>
       </footer>
     </div>
   )
