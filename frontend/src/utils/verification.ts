@@ -51,12 +51,8 @@ export function generateTwitterShareText(data: VerificationData): string {
   const verificationUrl = generateVerificationUrl(data.photoHash)
   const date = new Date(data.timestamp * 1000).toLocaleDateString()
   
-  return `📸 This photo is verified authentic on @Arbitrum!
-
-✅ Captured: ${date}
-🔗 Verify: ${verificationUrl}
-
-#ArbiPic #RealPhoto #NotAI #Verified`
+  return `
+🔗 Arbipic: ${verificationUrl}`
 }
 
 /**
@@ -64,9 +60,8 @@ export function generateTwitterShareText(data: VerificationData): string {
  */
 export function generateTwitterShareUrl(data: VerificationData, imageUrl?: string): string {
   const text = encodeURIComponent(generateTwitterShareText(data))
-  const url = encodeURIComponent(generateVerificationUrl(data.photoHash))
   
-  return `https://twitter.com/intent/tweet?text=${text}&url=${url}`
+  return `https://twitter.com/intent/tweet?text=${text}`
 }
 
 /**

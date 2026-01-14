@@ -21,7 +21,7 @@ function HomePage() {
       </main>
       <footer className="text-center py-6 text-white/80">
         <p className="text-sm">
-          Built with Stylus • Arbitrum Sepolia • Powered by Rust
+          Built with Stylus • Arbitrum Sepolia & Orbit L3 • Powered by Rust
         </p>
         <p className="text-xs mt-2">
           🏆 Arbitrum Hackathon Project

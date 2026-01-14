@@ -1,8 +1,8 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react'
+import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react'
 import Webcam from 'react-webcam'
 import { sha256 } from 'js-sha256'
 import { useAccount, useWaitForTransactionReceipt, useReadContract, useSwitchChain, useChainId } from 'wagmi'
-import { VERIFIER_ABI, VERIFIER_ADDRESS } from '../config'
+import { VERIFIER_ABI, getContractAddress, orbitL3 } from '../config'
 import { Hash, encodeFunctionData } from 'viem'
 import { arbitrumSepolia } from 'wagmi/chains'
 import { collectDeviceMetadata, hashToBigInt } from '../utils/deviceMetadata'
@@ -53,21 +53,25 @@ export const PhotoCaptureEnhanced: React.FC = () => {
   const chainId = useChainId()
   const { switchChain } = useSwitchChain()
   
+  // Get correct contract address for current network
+  const contractAddress = useMemo(() => getContractAddress(chainId), [chainId])
+  
   // Watch for transaction confirmation
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ 
     hash: pendingTxHash || undefined 
   })
 
-  const isCorrectNetwork = chainId === arbitrumSepolia.id
+  // Support both Arbitrum Sepolia and Orbit L3
+  const isCorrectNetwork = chainId === arbitrumSepolia.id || chainId === orbitL3.id
 
   // Read attestation data if photo exists
   const { data: attestation } = useReadContract({
-    address: VERIFIER_ADDRESS,
+    address: contractAddress,
     abi: VERIFIER_ABI,
     functionName: 'getAttestation',
     args: photo?.hash ? [BigInt(`0x${photo.hash}`)] : undefined,
     query: {
-      enabled: !!photo?.hash
+      enabled: !!photo?.hash && isCorrectNetwork
     }
   })
 
@@ -77,41 +81,67 @@ export const PhotoCaptureEnhanced: React.FC = () => {
       // Mark as created immediately to prevent re-runs
       setAttestationCreated(true)
       
-      // Create EAS attestation
-      setStep('attesting')
+      // Only create EAS attestation on Arbitrum Sepolia (EAS contracts don't exist on L3)
+      const isOnSepolia = chainId === arbitrumSepolia.id
       
-      const createAttestation = async () => {
-        try {
-          // Get stored ZK commitment
-          const storedMetadata = localStorage.getItem(`arbipic_metadata_${photo.hash}`)
-          const metadata = storedMetadata ? JSON.parse(storedMetadata) : {}
-          
-          const easResult = await createSimpleAttestation(
-            `0x${photo.hash}`,
-            Math.floor(Date.now() / 1000),
-            address,
-            photo.ipfsCid || '',
-            metadata.zkCommitment || '0x0'
-          )
-          
-          if (easResult.success && easResult.attestationId) {
-            setPhoto(prev => prev ? { 
-              ...prev, 
-              easAttestationId: easResult.attestationId,
-              easExplorerUrl: easResult.explorerUrl 
-            } : null)
-            console.log('✅ EAS Attestation created:', easResult.attestationId)
-            if (easResult.explorerUrl) {
-              console.log('🔗 View on EAS Explorer:', easResult.explorerUrl)
+      if (isOnSepolia) {
+        // Create EAS attestation
+        setStep('attesting')
+        
+        const createAttestation = async () => {
+          try {
+            // Get stored ZK commitment
+            const storedMetadata = localStorage.getItem(`arbipic_metadata_${photo.hash}`)
+            const metadata = storedMetadata ? JSON.parse(storedMetadata) : {}
+            
+            const easResult = await createSimpleAttestation(
+              `0x${photo.hash}`,
+              Math.floor(Date.now() / 1000),
+              address,
+              photo.ipfsCid || '',
+              metadata.zkCommitment || '0x0'
+            )
+            
+            if (easResult.success && easResult.attestationId) {
+              setPhoto(prev => prev ? { 
+                ...prev, 
+                easAttestationId: easResult.attestationId,
+                easExplorerUrl: easResult.explorerUrl 
+              } : null)
+              console.log('✅ EAS Attestation created:', easResult.attestationId)
+              if (easResult.explorerUrl) {
+                console.log('🔗 View on EAS Explorer:', easResult.explorerUrl)
+              }
+              if (easResult.error) {
+                console.warn('⚠️', easResult.error)
+              }
             }
-            if (easResult.error) {
-              console.warn('⚠️', easResult.error)
-            }
+          } catch (err) {
+            console.warn('EAS attestation failed (non-critical):', err)
           }
-        } catch (err) {
-          console.warn('EAS attestation failed (non-critical):', err)
+          
+          setStep('complete')
+        
+          // Store verification data locally
+          const verificationData: VerificationData = {
+            photoHash: photo.hash,
+            txHash: pendingTxHash,
+            timestamp: Math.floor(Date.now() / 1000),
+            owner: address,
+            ipfsCid: photo.ipfsCid
+          }
+          storeVerificationLocally(verificationData)
+          
+          // Generate watermarked image
+          addVerificationWatermark(photo.imageSrc, photo.hash)
+            .then(setWatermarkedImage)
+            .catch(console.error)
         }
         
+        createAttestation()
+      } else {
+        // On L3, skip EAS and go straight to complete
+        console.log('📍 On L3 - skipping EAS attestation (not available on local L3)')
         setStep('complete')
         
         // Store verification data locally
@@ -129,10 +159,8 @@ export const PhotoCaptureEnhanced: React.FC = () => {
           .then(setWatermarkedImage)
           .catch(console.error)
       }
-      
-      createAttestation()
     }
-  }, [isConfirmed, photo, pendingTxHash, address, attestationCreated])
+  }, [isConfirmed, photo, pendingTxHash, address, attestationCreated, chainId])
 
   const capture = useCallback(() => {
     setIsCapturing(true)
@@ -260,7 +288,7 @@ export const PhotoCaptureEnhanced: React.FC = () => {
         method: 'eth_sendTransaction',
         params: [{
           from: address,
-          to: VERIFIER_ADDRESS,
+          to: contractAddress,
           data: callData,
           gas: '0x7A120', // 500000 in hex - increased for reliability
           gasPrice: gasPrice // Use current gas price
@@ -277,9 +305,7 @@ export const PhotoCaptureEnhanced: React.FC = () => {
       setError(err.message || 'Verification failed')
       setStep('idle')
     }
-  }, [photo, isConnected, isCorrectNetwork, switchChain, address])
-
-  // Simple verification (minimal - just hash with zero zkCommitment)
+  }, [photo, isConnected, isCorrectNetwork, switchChain, address, contractAddress])
   const verifySimple = useCallback(async () => {
     if (!photo || !isConnected) return
     setError(null)
@@ -319,7 +345,7 @@ export const PhotoCaptureEnhanced: React.FC = () => {
         method: 'eth_sendTransaction',
         params: [{
           from: address,
-          to: VERIFIER_ADDRESS,
+          to: contractAddress,
           data: callData,
           gas: '0x3D090', // 250000 in hex
         }],
@@ -334,7 +360,7 @@ export const PhotoCaptureEnhanced: React.FC = () => {
       setError(err.message || 'Verification failed')
       setStep('idle')
     }
-  }, [photo, isConnected, isCorrectNetwork, switchChain, address])
+  }, [photo, isConnected, isCorrectNetwork, switchChain, address, contractAddress])
 
   const shareOnTwitter = useCallback(() => {
     if (!photo || !pendingTxHash || !address) return
@@ -416,7 +442,7 @@ export const PhotoCaptureEnhanced: React.FC = () => {
       const result = await ethereum.request({
         method: 'eth_call',
         params: [{
-          to: VERIFIER_ADDRESS,
+          to: contractAddress,
           data: callData,
         }, 'latest'],
       })
@@ -436,7 +462,7 @@ export const PhotoCaptureEnhanced: React.FC = () => {
       setZkProofResult('failed')
       alert('❌ ZK Proof Failed: ' + (err as Error).message)
     }
-  }, [photo])
+  }, [photo, contractAddress])
 
   const reset = () => {
     setPhoto(null)

@@ -7,16 +7,11 @@
  */
 
 import { EAS, SchemaEncoder, SchemaRegistry, NO_EXPIRATION } from '@ethereum-attestation-service/eas-sdk'
-import { ethers, keccak256, toUtf8Bytes, AbiCoder, Interface } from 'ethers'
+import { ethers, solidityPackedKeccak256 } from 'ethers'
 
 // EAS Contract addresses on Arbitrum Sepolia
 export const EAS_CONTRACT_ADDRESS = '0xaEF4103A04090071165F78D45D83A0C0782c2B2a'
 export const SCHEMA_REGISTRY_ADDRESS = '0x55D26f9ae0203EF95494AE4C170eD35f4Cf77797'
-
-// EAS ABI for the attest function
-const EAS_ABI = [
-  'function attest((bytes32 schema, (address recipient, uint64 expirationTime, bool revocable, bytes32 refUID, bytes data, uint256 value) data)) external payable returns (bytes32)'
-]
 
 // Our photo verification schema
 export const PHOTO_VERIFICATION_SCHEMA = 'bytes32 photoHash, uint256 timestamp, address photographer, string ipfsCid, bytes32 zkCommitment'
@@ -33,28 +28,41 @@ export interface PhotoAttestationData {
 }
 
 /**
- * Get or register the schema UID
- * Schema UID is deterministically computed as keccak256(abi.encode(schema, resolver, revocable))
+ * Compute the schema UID deterministically (same algorithm as EAS SDK)
  */
-async function getOrRegisterSchemaUID(signer: ethers.Signer): Promise<string> {
-  // Compute the correct schema UID deterministically
-  const abiCoder = AbiCoder.defaultAbiCoder()
-  const encoded = abiCoder.encode(
+export function computeSchemaUID(): string {
+  return solidityPackedKeccak256(
     ['string', 'address', 'bool'],
     [PHOTO_VERIFICATION_SCHEMA, '0x0000000000000000000000000000000000000000', true]
   )
-  const computedUID = keccak256(encoded)
+}
+
+/**
+ * Get or register the schema UID
+ */
+async function getOrRegisterSchemaUID(signer: ethers.Signer): Promise<string> {
+  const computedUID = computeSchemaUID()
   console.log('📋 Computed schema UID:', computedUID)
   
-  // Check localStorage - if different, update it
+  // Update localStorage if needed
   const storedUID = localStorage.getItem(SCHEMA_UID_KEY)
   if (storedUID !== computedUID) {
-    console.log('📝 Updating stored schema UID from', storedUID, 'to', computedUID)
     localStorage.setItem(SCHEMA_UID_KEY, computedUID)
   }
   
-  // Try to register the schema if not already registered
-  // This is idempotent - if already registered, it will fail silently
+  // Check if schema is already registered on-chain
+  try {
+    const schemaRegistry = new SchemaRegistry(SCHEMA_REGISTRY_ADDRESS)
+    schemaRegistry.connect(signer)
+    
+    const schema = await schemaRegistry.getSchema({ uid: computedUID })
+    console.log('✅ Schema already registered:', schema.uid)
+    return computedUID
+  } catch (e) {
+    console.log('📝 Schema not found, attempting to register...')
+  }
+  
+  // Try to register the schema
   try {
     const schemaRegistry = new SchemaRegistry(SCHEMA_REGISTRY_ADDRESS)
     schemaRegistry.connect(signer)
@@ -65,14 +73,14 @@ async function getOrRegisterSchemaUID(signer: ethers.Signer): Promise<string> {
       revocable: true
     })
     
-    await transaction.wait()
-    console.log('✅ Schema registered successfully')
+    const uid = await transaction.wait()
+    console.log('✅ Schema registered with UID:', uid)
+    return uid
   } catch (error: any) {
-    // Schema likely already exists - this is fine
-    console.log('ℹ️ Schema registration skipped (likely already exists):', error.message?.slice(0, 100))
+    console.warn('⚠️ Schema registration failed:', error.message?.slice(0, 100))
+    // Return computed UID anyway - maybe it exists but we couldn't check
+    return computedUID
   }
-  
-  return computedUID
 }
 
 /**
@@ -84,6 +92,7 @@ export function getEASExplorerUrl(attestationUID: string): string {
 
 /**
  * Create on-chain EAS attestation for a verified photo
+ * Uses the EAS SDK properly as documented
  */
 export async function createSimpleAttestation(
   photoHash: string,
@@ -103,21 +112,24 @@ export async function createSimpleAttestation(
     // Create ethers provider and signer
     const provider = new ethers.BrowserProvider(ethereum)
     const signer = await provider.getSigner()
-    const signerAddress = await signer.getAddress()
     
-    // Get or register schema
+    // Get schema UID
     const schemaUID = await getOrRegisterSchemaUID(signer)
     console.log('📋 Using schema UID:', schemaUID)
+    
+    // Initialize EAS
+    const eas = new EAS(EAS_CONTRACT_ADDRESS)
+    eas.connect(signer)
     
     // Ensure photoHash and zkCommitment are proper bytes32
     let formattedPhotoHash = photoHash.startsWith('0x') ? photoHash : `0x${photoHash}`
     let formattedZkCommitment = zkCommitment.startsWith('0x') ? zkCommitment : `0x${zkCommitment}`
     
     // Pad to 64 hex chars (32 bytes) after 0x
-    formattedPhotoHash = formattedPhotoHash.slice(0, 2) + formattedPhotoHash.slice(2).padEnd(64, '0')
-    formattedZkCommitment = formattedZkCommitment.slice(0, 2) + formattedZkCommitment.slice(2).padEnd(64, '0')
+    formattedPhotoHash = formattedPhotoHash.slice(0, 2) + formattedPhotoHash.slice(2).padStart(64, '0')
+    formattedZkCommitment = formattedZkCommitment.slice(0, 2) + formattedZkCommitment.slice(2).padStart(64, '0')
     
-    // Encode attestation data using SchemaEncoder
+    // Encode attestation data using SchemaEncoder (as shown in EAS SDK README)
     const schemaEncoder = new SchemaEncoder(PHOTO_VERIFICATION_SCHEMA)
     const encodedData = schemaEncoder.encodeData([
       { name: 'photoHash', value: formattedPhotoHash, type: 'bytes32' },
@@ -127,70 +139,23 @@ export async function createSimpleAttestation(
       { name: 'zkCommitment', value: formattedZkCommitment, type: 'bytes32' }
     ])
 
-    console.log('📤 Sending attestation transaction via raw method (bypassing simulation)...')
+    console.log('📤 Sending EAS attestation via SDK...')
     
-    // Build the calldata using ethers Interface for proper ABI encoding
-    const easInterface = new Interface(EAS_ABI)
-    
-    // Create the attestation request struct
-    const attestationRequest = {
+    // Create attestation using the SDK (as documented)
+    const transaction = await eas.attest({
       schema: schemaUID,
       data: {
         recipient: photographer,
-        expirationTime: 0n, // NO_EXPIRATION
+        expirationTime: NO_EXPIRATION,
         revocable: true,
-        refUID: '0x0000000000000000000000000000000000000000000000000000000000000000',
-        data: encodedData,
-        value: 0n
+        data: encodedData
       }
-    }
-    
-    // Encode the function call using the Interface
-    const fullCalldata = easInterface.encodeFunctionData('attest', [attestationRequest])
-    
-    console.log('📋 EAS calldata:', fullCalldata.slice(0, 66) + '...')
-    
-    // Get current gas price for reliability
-    const gasPrice = await ethereum.request({ method: 'eth_gasPrice' })
-    
-    // Send raw transaction to bypass MetaMask simulation
-    const txHash = await ethereum.request({
-      method: 'eth_sendTransaction',
-      params: [{
-        from: signerAddress,
-        to: EAS_CONTRACT_ADDRESS,
-        data: fullCalldata,
-        gas: '0xB71B0', // 750000 gas for buffer
-        gasPrice: gasPrice
-      }]
     })
     
-    console.log('📨 Transaction sent:', txHash)
-    console.log('⏳ Waiting for confirmation...')
+    console.log('⏳ Waiting for transaction confirmation...')
     
-    // Wait for receipt
-    const receipt = await provider.waitForTransaction(txHash)
-    
-    // Parse the Attested event to get UID
-    let attestationUID: string = ''
-    const attestedEventTopic = keccak256(toUtf8Bytes('Attested(address,address,bytes32,bytes32)'))
-    
-    if (receipt && receipt.logs) {
-      for (const log of receipt.logs) {
-        if (log.topics[0] === attestedEventTopic) {
-          // UID is the 3rd indexed topic (topics[2])
-          attestationUID = log.topics[2]
-          console.log('📋 Parsed attestation UID:', attestationUID)
-          break
-        }
-      }
-    }
-    
-    if (!attestationUID) {
-      // Fallback to tx hash
-      attestationUID = txHash
-      console.log('📋 Using tx hash as attestation reference:', attestationUID)
-    }
+    // Wait for the transaction and get the attestation UID
+    const attestationUID = await transaction.wait()
     
     console.log('✅ EAS Attestation created:', attestationUID)
     
@@ -204,7 +169,7 @@ export async function createSimpleAttestation(
       ipfsCid,
       zkCommitment: formattedZkCommitment,
       createdAt: new Date().toISOString(),
-      txHash: txHash
+      txHash: transaction.receipt?.hash
     }
     localStorage.setItem(`eas_attestation_${photoHash.replace('0x', '')}`, JSON.stringify(attestationData))
     
@@ -215,6 +180,15 @@ export async function createSimpleAttestation(
     }
   } catch (error: any) {
     console.error('EAS attestation error:', error)
+    
+    // Check if it's a simulation/revert error
+    if (error.code === -32603 || error.message?.includes('Internal JSON-RPC')) {
+      return {
+        success: false,
+        error: 'Transaction simulation failed. The schema may not be registered. Please register at: https://arbitrum-sepolia.easscan.org/schema/create with schema: ' + PHOTO_VERIFICATION_SCHEMA
+      }
+    }
+    
     return { 
       success: false, 
       error: error.message || 'Failed to create attestation'

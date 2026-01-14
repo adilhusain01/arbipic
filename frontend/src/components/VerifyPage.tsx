@@ -1,11 +1,13 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { sha256 } from 'js-sha256'
-import { useReadContract } from 'wagmi'
-import { VERIFIER_ABI, VERIFIER_ADDRESS, PINATA_GATEWAY } from '../config'
+import { useReadContract, useChainId } from 'wagmi'
+import { VERIFIER_ABI, getContractAddress, PINATA_GATEWAY, orbitL3 } from '../config'
 import { generateVerificationId, generateContractUrl, getLocalVerification } from '../utils/verification'
 import { retrieveSecret } from '../utils/zkProof'
 import { encodeFunctionData } from 'viem'
+import { arbitrumSepolia } from 'wagmi/chains'
+import { Header } from './Header'
 
 interface PhotoMetadata {
   ipfsCid: string
@@ -25,6 +27,12 @@ export const VerifyPage: React.FC = () => {
   // ZK Proof state
   const [zkProofStatus, setZkProofStatus] = useState<'idle' | 'proving' | 'success' | 'failed'>('idle')
   const [hasSecret, setHasSecret] = useState(false)
+
+  // Network awareness
+  const chainId = useChainId()
+  const contractAddress = useMemo(() => getContractAddress(chainId), [chainId])
+  const networkName = chainId === orbitL3.id ? 'Orbit L3' : 'Arbitrum Sepolia'
+  const isOnL3 = chainId === orbitL3.id
 
   // Try to get full hash from URL param or local storage
   useEffect(() => {
@@ -79,7 +87,7 @@ export const VerifyPage: React.FC = () => {
       const result = await ethereum.request({
         method: 'eth_call',
         params: [{
-          to: VERIFIER_ADDRESS,
+          to: contractAddress,
           data: callData,
         }, 'latest'],
       })
@@ -92,11 +100,11 @@ export const VerifyPage: React.FC = () => {
       console.error('ZK proof error:', err)
       setZkProofStatus('failed')
     }
-  }, [searchHash])
+  }, [searchHash, contractAddress])
 
   // Read on-chain verification status
   const { data: isVerified, isLoading: isCheckingVerification } = useReadContract({
-    address: VERIFIER_ADDRESS,
+    address: contractAddress,
     abi: VERIFIER_ABI,
     functionName: 'isVerified',
     args: searchHash ? [BigInt(`0x${searchHash}`)] : undefined,
@@ -107,7 +115,7 @@ export const VerifyPage: React.FC = () => {
 
   // Read attestation timestamp
   const { data: attestation } = useReadContract({
-    address: VERIFIER_ADDRESS,
+    address: contractAddress,
     abi: VERIFIER_ABI,
     functionName: 'getAttestation',
     args: searchHash ? [BigInt(`0x${searchHash}`)] : undefined,
@@ -118,7 +126,7 @@ export const VerifyPage: React.FC = () => {
 
   // Read full metadata (using getAttestation)
   const { data: metadata } = useReadContract({
-    address: VERIFIER_ADDRESS,
+    address: contractAddress,
     abi: VERIFIER_ABI,
     functionName: 'getAttestation',
     args: searchHash ? [BigInt(`0x${searchHash}`)] : undefined,
@@ -236,17 +244,23 @@ export const VerifyPage: React.FC = () => {
   } : null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12">
-      <div className="max-w-4xl mx-auto px-6">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            🔍 Verify Photo Authenticity
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Check if a photo was verified on the Arbitrum blockchain
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800">
+      <Header />
+      <div className="py-12">
+        <div className="max-w-4xl mx-auto px-6">
+          {/* Page Title */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-white">
+              🔍 Verify Photo Authenticity
+            </h1>
+            <p className="text-white/80 mt-2">
+              Check if a photo was verified on the Arbitrum blockchain
+            </p>
+            <div className="mt-3 inline-flex items-center px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-sm">
+              <span className="mr-2">{isOnL3 ? '🟣' : '🔵'}</span>
+              <span className="text-white/90">Connected to <strong>{networkName}</strong></span>
+            </div>
+          </div>
 
         {/* Search Box */}
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
@@ -551,8 +565,9 @@ export const VerifyPage: React.FC = () => {
         )}
 
         {/* Footer */}
-        <div className="text-center mt-8 text-gray-500 text-sm">
+        <div className="text-center mt-8 text-white/60 text-sm">
           <p>Powered by <span className="font-semibold">Arbitrum Stylus</span> • Fighting AI fakes with blockchain</p>
+        </div>
         </div>
       </div>
     </div>

@@ -1,17 +1,56 @@
 import { http, createConfig } from 'wagmi'
 import { arbitrumSepolia } from 'wagmi/chains'
+import type { Chain } from 'viem'
 import { injected } from 'wagmi/connectors'
 
 // Use the official Arbitrum Sepolia RPC (Omnia has issues with eth_sendRawTransaction)
 const ARBITRUM_SEPOLIA_RPC = 'https://sepolia-rollup.arbitrum.io/rpc'
 
+// Local L3 Orbit chain configuration
+export const orbitL3: Chain = {
+  id: 333333,
+  name: 'ArbiPic L3 (Orbit)',
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ['http://127.0.0.1:3347'],
+    },
+  },
+  blockExplorers: undefined,
+  testnet: true,
+}
+
+// Local L2 chain (nitro-testnode)
+export const localL2: Chain = {
+  id: 412346,
+  name: 'Local L2 (Nitro)',
+  nativeCurrency: {
+    name: 'Ether',
+    symbol: 'ETH',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ['http://127.0.0.1:8547'],
+    },
+  },
+  blockExplorers: undefined,
+  testnet: true,
+}
+
 export const config = createConfig({
-  chains: [arbitrumSepolia],
+  chains: [arbitrumSepolia, orbitL3, localL2],
   connectors: [
     injected(),
   ],
   transports: {
     [arbitrumSepolia.id]: http(ARBITRUM_SEPOLIA_RPC),
+    [orbitL3.id]: http('http://127.0.0.1:3347'),
+    [localL2.id]: http('http://127.0.0.1:8547'),
   },
 })
 
@@ -117,6 +156,17 @@ export const VERIFIER_ABI = [
 
 // Update this with your deployed contract address
 export const VERIFIER_ADDRESS = '0xeb246817d2440f82f4b4c04c2c120afefe1e5ec4' as const
+
+// L3 Orbit contract address
+export const L3_VERIFIER_ADDRESS = '0x1294b86822ff4976bfe136cb06cf43ec7fcf2574' as const
+
+// Get the correct contract address based on chain ID
+export function getContractAddress(chainId: number): `0x${string}` {
+  if (chainId === 333333) {
+    return L3_VERIFIER_ADDRESS
+  }
+  return VERIFIER_ADDRESS
+}
 
 // Pinata IPFS configuration (use JWT for SDK)
 // Get your JWT from https://app.pinata.cloud/developers/api-keys

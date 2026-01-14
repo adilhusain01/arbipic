@@ -1,10 +1,15 @@
 import React from 'react'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { useAccount, useConnect, useDisconnect, useChainId } from 'wagmi'
+import { NetworkSwitcher } from './NetworkSwitcher'
+import { orbitL3 } from '../config'
 
 export const Header: React.FC = () => {
   const { address, isConnected } = useAccount()
   const { connect, connectors } = useConnect()
   const { disconnect } = useDisconnect()
+  const chainId = useChainId()
+
+  const networkName = chainId === orbitL3.id ? 'Orbit L3' : 'Arbitrum Sepolia'
 
   return (
     <header className="bg-white/10 backdrop-blur-lg border-b border-white/20">
@@ -19,10 +24,12 @@ export const Header: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+            {isConnected && <NetworkSwitcher />}
+            
             {isConnected ? (
               <div className="flex items-center space-x-3">
                 <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                  <p className="text-xs text-white/80">Connected</p>
+                  <p className="text-xs text-white/80">{networkName}</p>
                   <p className="text-sm font-mono text-white">
                     {address?.slice(0, 6)}...{address?.slice(-4)}
                   </p>
