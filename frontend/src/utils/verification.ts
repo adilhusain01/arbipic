@@ -15,7 +15,7 @@ export interface VerificationData {
 
 /**
  * Generate a short verification ID from photo hash
- * Uses first 8 chars of hash for short URLs
+ * Uses first 12 chars of hash for display purposes
  */
 export function generateVerificationId(photoHash: string): string {
   const cleanHash = photoHash.startsWith('0x') ? photoHash.slice(2) : photoHash
@@ -23,11 +23,12 @@ export function generateVerificationId(photoHash: string): string {
 }
 
 /**
- * Generate full verification URL for Twitter sharing
+ * Generate full verification URL for sharing
+ * Uses full hash so verification works across devices without local storage
  */
 export function generateVerificationUrl(photoHash: string): string {
-  const verificationId = generateVerificationId(photoHash)
-  return `${APP_URL}/verify/${verificationId}`
+  const cleanHash = photoHash.startsWith('0x') ? photoHash.slice(2) : photoHash
+  return `${APP_URL}/verify/${cleanHash}`
 }
 
 /**

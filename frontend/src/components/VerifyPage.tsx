@@ -34,16 +34,27 @@ export const VerifyPage: React.FC = () => {
   const networkName = chainId === orbitL3.id ? 'Orbit L3' : 'Arbitrum Sepolia'
   const isOnL3 = chainId === orbitL3.id
 
-  // Try to get full hash from URL param or local storage
+  // Try to get full hash from URL param
   useEffect(() => {
     if (verificationId) {
-      // Check local storage for full hash
-      const localData = getLocalVerification(verificationId)
-      if (localData) {
-        setSearchHash(localData.photoHash)
+      // Clean the hash - remove 0x prefix if present
+      const cleanHash = verificationId.startsWith('0x') ? verificationId.slice(2) : verificationId
+      
+      // If it's a full 64-char hash, use it directly
+      if (cleanHash.length === 64) {
+        setSearchHash(cleanHash)
+        setInputHash(cleanHash)
       } else {
-        // Just use the ID - we'll need full hash for on-chain lookup
-        setInputHash(verificationId)
+        // Short ID - try local storage (only works on same device)
+        const localData = getLocalVerification(cleanHash)
+        if (localData) {
+          setSearchHash(localData.photoHash)
+          setInputHash(localData.photoHash)
+        } else {
+          // Can't look up - show the short ID but warn user
+          setInputHash(cleanHash)
+          console.log('Short verification ID provided - full hash needed for blockchain lookup')
+        }
       }
     }
   }, [verificationId])
