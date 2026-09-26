@@ -75,7 +75,7 @@ A decentralized application that combats AI-generated fake images by enabling us
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/yourusername/ArbiPic.git
+git clone https://github.com/adilhusain01/arbipic.git ArbiPic
 cd ArbiPic
 
 # Install frontend dependencies
@@ -87,7 +87,12 @@ cd ../contracts && cargo build --release
 
 ### 2. Configure Environment
 
-Create `frontend/.env`:
+Copy `frontend/.env.example` to `frontend/.env` and fill in your values:
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+Variables:
 ```env
 VITE_PINATA_JWT=your_pinata_jwt_token
 VITE_PINATA_GATEWAY=your-gateway.mypinata.cloud
